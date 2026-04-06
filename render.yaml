@@ -1,0 +1,39 @@
+services:
+  - type: web
+    name: nait-service
+    runtime: docker
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "3000"
+      - key: DATABASE_URL
+        sync: false # Set manually — Supabase connection string
+      - key: API_KEY
+        generateValue: true
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_ISSUER
+        value: tulifo-video-nait
+      - key: VERIFICATION_BASE_URL
+        sync: false # Set to your Render service URL, e.g. https://nait-service.onrender.com
+      - key: GOOGLE_AUTH_MODE
+        value: oauth
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: GOOGLE_REFRESH_TOKEN
+        sync: false
+      - key: GOOGLE_CALENDAR_ID
+        value: primary
+      - key: DEFAULT_WEBHOOK_URL
+        sync: false
+      - key: DEFAULT_LINK_EXPIRY_HOURS
+        value: "72"
+      - key: DEFAULT_SLOT_DURATION_MINUTES
+        value: "60"
+      - key: LOG_LEVEL
+        value: info

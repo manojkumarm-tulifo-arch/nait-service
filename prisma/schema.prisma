@@ -1,0 +1,167 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum VerificationStatus {
+  email_pending
+  email_verified
+  photo_completed
+  id_completed
+  slot_booked
+  completed
+  cancelled
+  expired
+}
+
+enum VerificationStep {
+  email
+  photo
+  id_proof
+  schedule
+  review
+}
+
+enum BookingStatus {
+  confirmed
+  cancelled
+}
+
+enum IdType {
+  aadhaar
+  pan
+  passport
+  dl
+}
+
+model VerificationSession {
+  id                    String              @id @default(uuid())
+  candidateName         String
+  candidateEmail        String
+  candidatePhone        String?
+  jobId                 String
+  jobTitle              String
+  employerId            String
+  status                VerificationStatus  @default(email_pending)
+  currentStep           VerificationStep    @default(email)
+  tokenJti              String              @unique
+  tokenExpiresAt        DateTime
+  schedulingWindowStart DateTime
+  schedulingWindowEnd   DateTime
+  slotDurationMinutes   Int
+  calendarId            String
+  webhookUrl            String
+  metadata              Json?
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
+
+  emailVerification     EmailVerification?
+  phoneVerification     PhoneVerification?
+  photoVerification     PhotoVerification?
+  idVerification        IdVerification?
+  booking               Booking?
+  submission            Submission?
+
+  @@index([employerId, status, createdAt(sort: Desc)])
+  @@map("verification_sessions")
+}
+
+model EmailVerification {
+  id          String              @id @default(uuid())
+  sessionId   String              @unique
+  session     VerificationSession @relation(fields: [sessionId], references: [id])
+  email       String
+  otpCode     String
+  otpExpiresAt DateTime
+  verified    Boolean             @default(false)
+  verifiedAt  DateTime?
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+
+  @@map("email_verifications")
+}
+
+model PhoneVerification {
+  id          String              @id @default(uuid())
+  sessionId   String              @unique
+  session     VerificationSession @relation(fields: [sessionId], references: [id])
+  phone       String
+  otpCode     String
+  otpExpiresAt DateTime
+  verified    Boolean             @default(false)
+  verifiedAt  DateTime?
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+
+  @@map("phone_verifications")
+}
+
+model PhotoVerification {
+  id                String              @id @default(uuid())
+  sessionId         String              @unique
+  session           VerificationSession @relation(fields: [sessionId], references: [id])
+  photoPath         String
+  livenessCompleted Boolean             @default(false)
+  livenessScore     Float?
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+
+  @@map("photo_verifications")
+}
+
+model IdVerification {
+  id              String              @id @default(uuid())
+  sessionId       String              @unique
+  session         VerificationSession @relation(fields: [sessionId], references: [id])
+  idType          IdType
+  imagePath       String
+  extractedName   String?
+  extractedData   Json?
+  faceMatchScore  Float?
+  verified        Boolean             @default(false)
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  @@map("id_verifications")
+}
+
+model Booking {
+  id                     String              @id @default(uuid())
+  sessionId              String              @unique
+  session                VerificationSession @relation(fields: [sessionId], references: [id])
+  candidateEmail         String
+  jobId                  String
+  employerId             String
+  startTime              DateTime
+  endTime                DateTime
+  googleCalendarEventId  String
+  calendarId             String
+  status                 BookingStatus       @default(confirmed)
+  cancelledAt            DateTime?
+  cancelReason           String?
+  createdAt              DateTime            @default(now())
+  updatedAt              DateTime            @updatedAt
+
+  @@index([employerId, status, startTime(sort: Desc)])
+  @@map("bookings")
+}
+
+model Submission {
+  id              String              @id @default(uuid())
+  sessionId       String              @unique
+  session         VerificationSession @relation(fields: [sessionId], references: [id])
+  latitude        Float
+  longitude       Float
+  accuracy        Float?
+  deviceInfo      String
+  referenceNumber String              @unique
+  submittedAt     DateTime            @default(now())
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  @@map("submissions")
+}
