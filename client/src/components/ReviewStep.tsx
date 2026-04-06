@@ -61,19 +61,28 @@ export default function ReviewStep({ token, session, onComplete }: ReviewStepPro
       <p className="text-gray-500 mb-8">Review everything. Click any card to make changes.</p>
 
       <div className="w-full max-w-md space-y-4">
-        {/* Candidate card */}
+        {/* Photo & ID card */}
         <div className="border border-gray-200 rounded-xl p-4">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-10 h-10 bg-indigo-100 rounded-full flex items-center justify-center">
-              <svg className="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-              </svg>
-            </div>
+          <div className="flex items-center gap-4 mb-4">
+            {session.photo?.photoUrl ? (
+              <img src={session.photo.photoUrl} alt="Selfie" className="w-16 h-16 rounded-full object-cover border-2 border-emerald-200" />
+            ) : (
+              <div className="w-16 h-16 bg-indigo-100 rounded-full flex items-center justify-center">
+                <svg className="w-8 h-8 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
+              </div>
+            )}
             <div>
               <p className="font-semibold text-gray-900">{session.candidateName}</p>
               <p className="text-sm text-gray-500">{session.candidateEmail}</p>
             </div>
           </div>
+          {session.idProof?.imageUrl && (
+            <div className="bg-gray-50 rounded-lg overflow-hidden mb-3">
+              <img src={session.idProof.imageUrl} alt="ID Proof" className="w-full h-32 object-cover" />
+            </div>
+          )}
           <div className="flex items-center gap-4 text-xs">
             <span className="flex items-center gap-1 text-emerald-600">
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

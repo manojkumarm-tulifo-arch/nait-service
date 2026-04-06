@@ -21,7 +21,14 @@ export function createApp(): express.Express {
   const app = express();
 
   // --- Global middleware ---
-  app.use(helmet());          // Security headers (CSP, HSTS, etc.)
+  app.use(helmet({
+    contentSecurityPolicy: {
+      directives: {
+        ...helmet.contentSecurityPolicy.getDefaultDirectives(),
+        'img-src': ["'self'", 'blob:', 'data:', 'https://res.cloudinary.com'],
+      },
+    },
+  }));
   app.use(cors());            // Cross-origin requests (frontend on different port in dev)
   app.use(express.json());    // Parse JSON request bodies
   app.use(pinoHttp({ logger })); // Structured request/response logging

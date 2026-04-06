@@ -112,8 +112,8 @@ export async function getSessionState(token: string) {
     currentStep: session.currentStep,
     email: emailVer ? { verified: emailVer.verified, email: emailVer.email } : null,
     phone: phoneVer ? { verified: phoneVer.verified, phone: phoneVer.phone } : null,
-    photo: photoVer ? { completed: true, livenessCompleted: photoVer.livenessCompleted, livenessScore: photoVer.livenessScore } : null,
-    idProof: idVer ? { verified: idVer.verified, idType: idVer.idType, extractedName: idVer.extractedName, faceMatchScore: idVer.faceMatchScore } : null,
+    photo: photoVer ? { completed: true, livenessCompleted: photoVer.livenessCompleted, livenessScore: photoVer.livenessScore, photoUrl: photoVer.photoPath } : null,
+    idProof: idVer ? { verified: idVer.verified, idType: idVer.idType, extractedName: idVer.extractedName, faceMatchScore: idVer.faceMatchScore, imageUrl: idVer.imagePath } : null,
     booking: booking && booking.status === 'confirmed' ? {
       startTime: booking.startTime.toISOString(),
       endTime: booking.endTime.toISOString(),

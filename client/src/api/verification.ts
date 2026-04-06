@@ -17,8 +17,8 @@ export interface SessionState {
   currentStep: 'email' | 'photo' | 'id_proof' | 'schedule' | 'review';
   email: { verified: boolean; email: string } | null;
   phone: { verified: boolean; phone: string } | null;
-  photo: { completed: boolean; livenessCompleted: boolean; livenessScore: number | null } | null;
-  idProof: { verified: boolean; idType: string; extractedName: string | null; faceMatchScore: number | null } | null;
+  photo: { completed: boolean; livenessCompleted: boolean; livenessScore: number | null; photoUrl: string | null } | null;
+  idProof: { verified: boolean; idType: string; extractedName: string | null; faceMatchScore: number | null; imageUrl: string | null } | null;
   booking: { startTime: string; endTime: string; timeRemainingMs: number } | null;
   submission: { referenceNumber: string; submittedAt: string } | null;
 }
