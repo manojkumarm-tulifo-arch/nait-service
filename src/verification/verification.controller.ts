@@ -9,6 +9,7 @@
 import type { Request, Response } from 'express';
 import * as service from './verification.service.js';
 import { sendSuccess } from '../lib/response.js';
+import { uploadImage } from '../lib/cloudinary.js';
 import type { CreateSessionInput, ListSessionsQuery } from './verification.schemas.js';
 
 // --- Public (token-based) ---
@@ -53,7 +54,8 @@ export async function uploadPhoto(req: Request, res: Response) {
     res.status(400).json({ error: { code: 'MISSING_FILE', message: 'Photo file is required' } });
     return;
   }
-  const data = await service.uploadPhoto(token, req.file.path);
+  const photoUrl = await uploadImage(req.file.buffer, 'photos');
+  const data = await service.uploadPhoto(token, photoUrl);
   sendSuccess(res, data);
 }
 
@@ -71,7 +73,8 @@ export async function uploadIdProof(req: Request, res: Response) {
     res.status(400).json({ error: { code: 'MISSING_FILE', message: 'ID image file is required' } });
     return;
   }
-  const data = await service.uploadIdProof(token, idType, req.file.path);
+  const imageUrl = await uploadImage(req.file.buffer, 'id-proofs');
+  const data = await service.uploadIdProof(token, idType, imageUrl);
   sendSuccess(res, data);
 }
 

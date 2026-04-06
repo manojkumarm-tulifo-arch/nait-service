@@ -37,6 +37,11 @@ const configSchema = z.object({
   GOOGLE_REFRESH_TOKEN: z.string().optional(),
   GOOGLE_CALENDAR_ID: z.string().default('primary'),
 
+  // Cloudinary — cloud image storage for photos and ID proofs
+  CLOUDINARY_CLOUD_NAME: z.string().min(1),
+  CLOUDINARY_API_KEY: z.string().min(1),
+  CLOUDINARY_API_SECRET: z.string().min(1),
+
   // Defaults applied when admin doesn't specify per-session overrides
   DEFAULT_WEBHOOK_URL: z.string().url(),
   DEFAULT_LINK_EXPIRY_HOURS: z.coerce.number().positive().default(72),
