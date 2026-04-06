@@ -27,7 +27,7 @@ export function createApp(): express.Express {
   app.use(pinoHttp({ logger })); // Structured request/response logging
 
   // Serve uploaded files (photos, ID proofs) as static assets
-  app.use('/uploads', express.static('uploads'));
+  app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
   // --- Routes ---
   app.use(healthRouter);                  // /health, /health/ready — no auth
