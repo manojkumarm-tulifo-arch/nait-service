@@ -17,8 +17,8 @@ const VERIFICATION_STATUSES = [
 
 export const createSessionSchema = z.object({
   candidateName: z.string().min(1).max(200),
-  candidateEmail: z.string().email(),
-  candidatePhone: z.string().optional(),
+  candidateEmail: z.string().email().optional(),
+  candidatePhone: z.string().min(7).optional(),
   jobId: z.string().min(1),
   jobTitle: z.string().min(1).max(500),
   employerId: z.string().min(1),
@@ -32,9 +32,22 @@ export const createSessionSchema = z.object({
   linkExpiryHours: z.number().positive().optional(), // Falls back to DEFAULT_LINK_EXPIRY_HOURS
   webhookUrl: z.string().url().optional(),           // Falls back to DEFAULT_WEBHOOK_URL
   metadata: z.record(z.string(), z.unknown()).optional(),
-});
+}).refine(
+  (data) => data.candidateEmail || data.candidatePhone,
+  'At least one of email or phone must be provided',
+);
 
 export type CreateSessionInput = z.infer<typeof createSessionSchema>;
+
+// --- Update missing contact info (user-facing) ---
+
+export const updateContactSchema = z.object({
+  candidateEmail: z.string().email().optional(),
+  candidatePhone: z.string().min(7).optional(),
+}).refine(
+  (data) => data.candidateEmail || data.candidatePhone,
+  'At least one of email or phone must be provided',
+);
 
 // --- Step 1: Email verification ---
 

@@ -8,7 +8,7 @@
  */
 export interface VerificationTokenPayload {
   sessionId: string;
-  candidateEmail: string;
+  candidateEmail?: string;
   employerId: string;
   jti: string;  // Unique token ID — used for invalidation on resend
 }

@@ -15,7 +15,7 @@ import { validate } from '../middleware/request-validator.js';
 import { upload } from '../middleware/file-upload.js';
 import * as controller from './verification.controller.js';
 import {
-  createSessionSchema, sendOtpSchema, verifyOtpSchema,
+  createSessionSchema, updateContactSchema, sendOtpSchema, verifyOtpSchema,
   sendPhoneOtpSchema, verifyPhoneOtpSchema,
   livenessResultSchema, bookSlotSchema, submitSchema,
   cancelSessionSchema, listSessionsQuerySchema,
@@ -30,6 +30,13 @@ router.get(
   '/verify/:token',
   validate(tokenParamSchema, 'params'),
   controller.getSessionState,
+);
+
+router.patch(
+  '/verify/:token/contact',
+  validate(tokenParamSchema, 'params'),
+  validate(updateContactSchema, 'body'),
+  controller.updateContactInfo,
 );
 
 router.post(

@@ -10,7 +10,7 @@ function unwrap<T>(res: { data: { data: T } }): T {
 export interface SessionState {
   sessionId: string;
   candidateName: string;
-  candidateEmail: string;
+  candidateEmail: string | null;
   candidatePhone: string | null;
   jobTitle: string;
   status: string;
@@ -52,6 +52,10 @@ export interface SubmitResult {
 
 export function getSessionState(token: string) {
   return api.get(`/verify/${token}`).then(unwrap<SessionState>);
+}
+
+export function updateContactInfo(token: string, data: { candidateEmail?: string; candidatePhone?: string }) {
+  return api.patch(`/verify/${token}/contact`, data).then(unwrap<{ candidateEmail: string; candidatePhone: string; message: string }>);
 }
 
 export function sendOtp(token: string, email: string) {
@@ -107,7 +111,7 @@ export function submitVerification(token: string, data: { latitude: number; long
 
 export interface CreateSessionInput {
   candidateName: string;
-  candidateEmail: string;
+  candidateEmail?: string;
   candidatePhone?: string;
   jobId: string;
   jobTitle: string;

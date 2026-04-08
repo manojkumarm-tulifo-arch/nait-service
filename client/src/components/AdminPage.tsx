@@ -10,6 +10,23 @@ function toDatetimeLocal(date: Date): string {
 const defaultStart = new Date(Date.now() + 24 * 60 * 60 * 1000);
 const defaultEnd = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const PHONE_REGEX = /^\+[1-9]\d{6,14}$/;
+
+function validateEmail(email: string): string | null {
+  if (!email) return null; // optional — at least one of email/phone required
+  if (!EMAIL_REGEX.test(email)) return 'Enter a valid email address';
+  return null;
+}
+
+function validatePhone(phone: string): string | null {
+  if (!phone) return null; // optional — at least one of email/phone required
+  if (!PHONE_REGEX.test(phone.replace(/[\s\-()]/g, ''))) {
+    return 'Enter a valid phone number (e.g. +91 98765 43210)';
+  }
+  return null;
+}
+
 export default function AdminPage() {
   const [form, setForm] = useState<CreateSessionInput>({
     candidateName: '',
@@ -24,19 +41,51 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<CreateSessionResult | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<{ email?: string; phone?: string }>({});
+  const [touched, setTouched] = useState<{ email?: boolean; phone?: boolean }>({});
 
   const update = (field: keyof CreateSessionInput, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }));
+    if (field === 'candidateEmail' && touched.email) {
+      setFieldErrors((prev) => ({ ...prev, email: validateEmail(value) ?? undefined }));
+    }
+    if (field === 'candidatePhone' && touched.phone) {
+      setFieldErrors((prev) => ({ ...prev, phone: validatePhone(value) ?? undefined }));
+    }
+  };
+
+  const handleBlur = (field: 'email' | 'phone') => {
+    setTouched((prev) => ({ ...prev, [field]: true }));
+    if (field === 'email') {
+      setFieldErrors((prev) => ({ ...prev, email: validateEmail(form.candidateEmail) ?? undefined }));
+    }
+    if (field === 'phone') {
+      setFieldErrors((prev) => ({ ...prev, phone: validatePhone(form.candidatePhone ?? '') ?? undefined }));
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const emailErr = validateEmail(form.candidateEmail);
+    const phoneErr = validatePhone(form.candidatePhone ?? '');
+    const hasAtLeastOne = !!form.candidateEmail || !!form.candidatePhone;
+
+    setFieldErrors({ email: emailErr ?? undefined, phone: phoneErr ?? undefined });
+    setTouched({ email: true, phone: true });
+
+    if (emailErr || phoneErr) return;
+    if (!hasAtLeastOne) {
+      setError('At least one of email or phone number is required');
+      return;
+    }
+
     setLoading(true);
     setError(null);
     setResult(null);
     try {
       const input: CreateSessionInput = {
         ...form,
+        candidateEmail: form.candidateEmail || undefined,
         candidatePhone: form.candidatePhone || undefined,
       };
       const data = await api.createSession(input);
@@ -133,7 +182,7 @@ export default function AdminPage() {
             </div>
             <h1 className="text-2xl font-bold text-gray-900">Candidate Information</h1>
             <p className="text-gray-500 text-sm text-center mt-1.5">
-              Enter the candidate's contact details. At least one is<br />required to begin the verification process.
+              Enter the candidate's contact details. At least one is<br />required — the candidate can provide the other during verification.
             </p>
           </div>
 
@@ -172,13 +221,16 @@ export default function AdminPage() {
                 </span>
                 <input
                   type="email"
-                  required
                   value={form.candidateEmail}
                   onChange={(e) => update('candidateEmail', e.target.value)}
+                  onBlur={() => handleBlur('email')}
                   placeholder="rajesh.kumar@techcorp.in"
-                  className="w-full pl-11 pr-4 py-3 border-2 border-gray-200 rounded-xl text-gray-700 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all"
+                  className={`w-full pl-11 pr-4 py-3 border-2 rounded-xl text-gray-700 focus:ring-2 outline-none transition-all ${fieldErrors.email ? 'border-red-400 focus:border-red-500 focus:ring-red-200' : 'border-gray-200 focus:border-indigo-500 focus:ring-indigo-200'}`}
                 />
               </div>
+              {fieldErrors.email && (
+                <p className="text-red-500 text-xs mt-1.5">{fieldErrors.email}</p>
+              )}
             </div>
 
             <div className="flex items-center gap-3 my-4">
@@ -201,10 +253,14 @@ export default function AdminPage() {
                   type="tel"
                   value={form.candidatePhone}
                   onChange={(e) => update('candidatePhone', e.target.value)}
+                  onBlur={() => handleBlur('phone')}
                   placeholder="+91 98765 43210"
-                  className="w-full pl-11 pr-4 py-3 border-2 border-gray-200 rounded-xl text-gray-700 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all"
+                  className={`w-full pl-11 pr-4 py-3 border-2 rounded-xl text-gray-700 focus:ring-2 outline-none transition-all ${fieldErrors.phone ? 'border-red-400 focus:border-red-500 focus:ring-red-200' : 'border-gray-200 focus:border-indigo-500 focus:ring-indigo-200'}`}
                 />
               </div>
+              {fieldErrors.phone && (
+                <p className="text-red-500 text-xs mt-1.5">{fieldErrors.phone}</p>
+              )}
             </div>
           </div>
 
@@ -284,7 +340,7 @@ export default function AdminPage() {
           {/* Submit Button */}
           <button
             type="submit"
-            disabled={loading || !form.candidateEmail || !form.candidateName}
+            disabled={loading || !form.candidateName || (!form.candidateEmail && !form.candidatePhone) || !!fieldErrors.email || !!fieldErrors.phone}
             className="w-full py-3.5 bg-indigo-600 text-white font-semibold rounded-xl hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
           >
             {loading ? (

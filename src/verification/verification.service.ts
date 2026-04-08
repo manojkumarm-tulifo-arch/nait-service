@@ -32,7 +32,7 @@ export async function createSession(input: CreateSessionInput) {
   // Two-phase token generation: create session first (need DB-generated ID),
   // then regenerate the token with the real session ID embedded in it.
   const { jti, expiresAt } = tokenService.generateToken(
-    { sessionId: 'placeholder', candidateEmail: input.candidateEmail, employerId: input.employerId },
+    { sessionId: 'placeholder', candidateEmail: input.candidateEmail ?? undefined, employerId: input.employerId },
     input.linkExpiryHours ?? config.DEFAULT_LINK_EXPIRY_HOURS,
   );
 
@@ -55,7 +55,7 @@ export async function createSession(input: CreateSessionInput) {
 
   // Regenerate token with the real session ID now that the row exists
   const { token, jti: finalJti, expiresAt: finalExpiresAt } = tokenService.generateToken(
-    { sessionId: session.id, candidateEmail: input.candidateEmail, employerId: input.employerId },
+    { sessionId: session.id, candidateEmail: input.candidateEmail ?? undefined, employerId: input.employerId },
     input.linkExpiryHours ?? config.DEFAULT_LINK_EXPIRY_HOURS,
   );
 
@@ -126,6 +126,35 @@ export async function getSessionState(token: string) {
   };
 }
 
+// --- Update missing contact info (user-facing) ---
+
+export async function updateContactInfo(token: string, data: { candidateEmail?: string; candidatePhone?: string }) {
+  const payload = tokenService.verifyToken(token);
+  const session = await repo.findSessionByTokenJti(payload.jti);
+  if (!session) throw new NotFoundError('Verification session');
+
+  const updates: Record<string, string> = {};
+
+  if (data.candidateEmail && !session.candidateEmail) {
+    updates.candidateEmail = data.candidateEmail;
+  }
+  if (data.candidatePhone && !session.candidatePhone) {
+    updates.candidatePhone = data.candidatePhone;
+  }
+
+  if (Object.keys(updates).length === 0) {
+    throw new ConflictError('No missing contact fields to update');
+  }
+
+  await repo.updateSession(session.id, updates);
+  const updated = await repo.findSessionById(session.id);
+  return {
+    candidateEmail: updated!.candidateEmail,
+    candidatePhone: updated!.candidatePhone,
+    message: 'Contact information updated',
+  };
+}
+
 // --- Step 1: Email Verification ---
 
 export async function sendOtp(token: string, email: string) {
@@ -183,9 +212,9 @@ export async function verifyOtp(token: string, code: string) {
     verifiedAt: new Date(),
   });
 
-  // Only advance to next step if phone is also verified (or no phone on session)
+  // Only advance to next step if phone is also verified
   const phoneVer = await repo.findPhoneVerification(session.id);
-  const phoneVerified = !session.candidatePhone || (phoneVer?.verified === true);
+  const phoneVerified = phoneVer?.verified === true;
 
   if (phoneVerified) {
     await repo.updateSession(session.id, {
@@ -423,13 +452,13 @@ export async function bookSlot(token: string, startTime: string) {
   const calendarEvent = await calendarService.createEvent(
     session.calendarId,
     `${session.jobTitle} — ${session.candidateName}`,
-    `Verified via Tulifo-VIDEO\nCandidate: ${session.candidateName} (${session.candidateEmail})`,
-    slotStart, slotEnd, session.candidateEmail,
+    `Verified via Tulifo-VIDEO\nCandidate: ${session.candidateName} (${session.candidateEmail ?? ''})`,
+    slotStart, slotEnd, session.candidateEmail ?? '',
   );
 
   const booking = await repo.createBooking({
     session: { connect: { id: session.id } },
-    candidateEmail: session.candidateEmail,
+    candidateEmail: session.candidateEmail ?? '',
     jobId: session.jobId,
     employerId: session.employerId,
     startTime: slotStart,
@@ -555,7 +584,7 @@ export async function resendInvitation(sessionId: string) {
   if (!session) throw new NotFoundError('Verification session');
 
   const { token, jti, expiresAt } = tokenService.generateToken(
-    { sessionId: session.id, candidateEmail: session.candidateEmail, employerId: session.employerId },
+    { sessionId: session.id, candidateEmail: session.candidateEmail ?? undefined, employerId: session.employerId },
     config.DEFAULT_LINK_EXPIRY_HOURS,
   );
 

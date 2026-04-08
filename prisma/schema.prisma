@@ -41,7 +41,7 @@ enum IdType {
 model VerificationSession {
   id                    String              @id @default(uuid())
   candidateName         String
-  candidateEmail        String
+  candidateEmail        String?
   candidatePhone        String?
   jobId                 String
   jobTitle              String

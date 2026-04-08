@@ -20,6 +20,12 @@ export async function getSessionState(req: Request, res: Response) {
   sendSuccess(res, data);
 }
 
+export async function updateContactInfo(req: Request, res: Response) {
+  const token = req.params.token as string;
+  const data = await service.updateContactInfo(token, req.body);
+  sendSuccess(res, data);
+}
+
 export async function sendOtp(req: Request, res: Response) {
   const token = req.params.token as string;
   const { email } = req.body;
