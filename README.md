@@ -8,7 +8,7 @@ Verification and scheduling microservice for the Tulifo-VIDEO platform. Candidat
 - **Photo + Liveness** — Browser-based selfie capture with blink/smile detection via face-api.js
 - **ID Proof** — Upload/scan government ID (Aadhaar, PAN, Passport, DL) with mock OCR and face match
 - **Interview Scheduling** — 1-hour slot picker backed by Google Calendar freebusy queries. Slots align to clean local-time hour boundaries (12 AM, 1 AM, …, 11 PM). A 2-hour buffer prevents candidates from booking slots that start within the next 2 hours.
-- **Review & Submit** — Summary of all data, geolocation + device capture, reference number generation
+- **Review & Submit** — Summary of all data, geolocation capture, detailed device fingerprint (browser, OS, screen, timezone, cores, memory, network, touch, DPR), reference number generation
 - **Admin API** — Create sessions with date-only scheduling window picker (no time selection). Sessions auto-expire when the scheduling window ends.
 - **Webhook Notifications** — Fire-and-forget HTTP callbacks for invitation_sent, booking_confirmed, booking_cancelled
 

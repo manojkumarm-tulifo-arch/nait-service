@@ -163,6 +163,8 @@ Interview slot booking with Google Calendar event ID for cancellation.
 
 Final submission record: geolocation (lat/lng/accuracy), device info, and reference number (VRF-YYYY-XXXX).
 
+The `deviceInfo` column stores a JSON-stringified fingerprint with these fields: `browser`, `os`, `screen`, `timezone`, `cores`, `memory`, `network`, `touch`, `dpr`. The backend treats it as an opaque string — admin UIs can `JSON.parse` it to display the structured values. This keeps the column schema unchanged (no migration) while still capturing structured data.
+
 ## Testing
 
 ### Test Setup

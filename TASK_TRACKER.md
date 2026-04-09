@@ -94,6 +94,7 @@
 | 64 | Timezone slot misalignment fix (IST 12:30 AM) | DONE | Removed `Math.ceil` UTC hour snap; start from windowStart directly for clean local-time hours |
 | 65 | JSDoc comments on all modified files | DONE | Added to AdminPage, VerifyStep, App, calendar.service, verification.service |
 | 66 | Documentation update (README, DEVELOPER, TASK_TRACKER) | DONE | Updated for all Phase 5 changes |
+| 67 | Expanded device fingerprint capture on Review page | DONE | `ReviewStep.tsx` — 9 fields (browser, OS, screen, timezone, cores, memory, network, touch, DPR) in expandable 3x3 grid. JSON-stringified into existing `deviceInfo` field — no schema migration. |
 
 ---
 
@@ -115,6 +116,6 @@
 
 ## Summary
 
-- **Total tasks**: 66
-- **Completed**: 57 (86%)
-- **Pending**: 9 (14%) — all are production hardening / future enhancements, not MVP blockers
+- **Total tasks**: 67
+- **Completed**: 58 (87%)
+- **Pending**: 9 (13%) — all are production hardening / future enhancements, not MVP blockers
