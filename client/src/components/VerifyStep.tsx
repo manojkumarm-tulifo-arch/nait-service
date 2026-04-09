@@ -3,7 +3,7 @@ import OtpInput from './OtpInput';
 import * as api from '../api/verification';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const PHONE_REGEX = /^\+[1-9]\d{6,14}$/;
+const PHONE_REGEX = /^\+91\d{10}$/;
 
 interface VerifyStepProps {
   token: string;
@@ -18,7 +18,7 @@ export default function VerifyStep({ token, email: initialEmail, phone: initialP
   const [error, setError] = useState<string | null>(null);
 
   // Editable contact info for missing values
-  const [email, setEmail] = useState(initialEmail);
+  const [email, setEmail] = useState(initialEmail ?? '');
   const [phone, setPhone] = useState(initialPhone ?? '');
   const [emailMissing] = useState(!initialEmail);
   const [phoneMissing] = useState(!initialPhone);
@@ -75,7 +75,7 @@ export default function VerifyStep({ token, email: initialEmail, phone: initialP
         setPhoneError('Phone number is required');
         valid = false;
       } else if (!PHONE_REGEX.test(cleaned)) {
-        setPhoneError('Enter a valid phone number (e.g. +91 98765 43210)');
+        setPhoneError('Enter a valid phone number: +91 followed by 10 digits (e.g. +919876543210)');
         valid = false;
       } else {
         setPhoneError(null);
@@ -142,21 +142,18 @@ export default function VerifyStep({ token, email: initialEmail, phone: initialP
     setError(null);
 
     try {
-      const promises: Promise<unknown>[] = [];
-
+      // Verify sequentially so the second call sees the first as committed,
+      // allowing the backend to advance the session when both are verified.
       if (!emailVerified && emailCodeRef.current.length === 6) {
-        promises.push(
-          api.verifyOtp(token, emailCodeRef.current).then(() => setEmailVerified(true)),
-        );
+        await api.verifyOtp(token, emailCodeRef.current);
+        setEmailVerified(true);
       }
 
       if (!phoneVerified && phoneCodeRef.current.length === 6) {
-        promises.push(
-          api.verifyPhoneOtp(token, phoneCodeRef.current).then(() => setPhoneVerified(true)),
-        );
+        await api.verifyPhoneOtp(token, phoneCodeRef.current);
+        setPhoneVerified(true);
       }
 
-      await Promise.all(promises);
       onComplete();
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { error?: { message?: string } } } })?.response?.data?.error?.message;
@@ -240,9 +237,10 @@ export default function VerifyStep({ token, email: initialEmail, phone: initialP
                   </span>
                   <input
                     type="tel"
+                    maxLength={13}
                     value={phone}
                     onChange={(e) => { setPhone(e.target.value); setPhoneError(null); }}
-                    placeholder="+91 98765 43210"
+                    placeholder="+919876543210"
                     className={`w-full pl-11 pr-4 py-3 border-2 rounded-xl text-gray-700 focus:ring-2 outline-none transition-all ${phoneError ? 'border-red-400 focus:border-red-500 focus:ring-red-200' : 'border-gray-200 focus:border-indigo-500 focus:ring-indigo-200'}`}
                   />
                 </div>

@@ -47,13 +47,18 @@ export async function getAvailableSlots(
 
     const slots: TimeSlot[] = [];
     const now = Date.now();
-    let cursor = windowStart.getTime();
+    // Slots must start at least 2 hours from now
+    const earliest = now + 2 * 60 * 60 * 1000;
+    // Snap cursor to the next whole-hour boundary so slots always fall on
+    // clean hours (e.g. 12:00 AM, 1:00 AM) — no intermediate slots like 5:03 AM.
+    const hourMs = 60 * 60 * 1000;
+    let cursor = Math.ceil(windowStart.getTime() / hourMs) * hourMs;
 
     while (cursor + slotDurationMs <= windowEnd.getTime()) {
       const slotEnd = cursor + slotDurationMs;
 
-      // Skip slots that are in the past
-      if (cursor < now) {
+      // Skip slots that start less than 2 hours from now
+      if (cursor < earliest) {
         cursor += slotDurationMs;
         continue;
       }

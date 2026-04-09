@@ -2,16 +2,21 @@ import { useState } from 'react';
 import * as api from '../api/verification';
 import type { CreateSessionInput, CreateSessionResult } from '../api/verification';
 
-function toDatetimeLocal(date: Date): string {
+function toDateOnly(date: Date): string {
   const pad = (n: number) => n.toString().padStart(2, '0');
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 }
 
-const defaultStart = new Date(Date.now() + 24 * 60 * 60 * 1000);
-const defaultEnd = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+// Default scheduling window: today midnight to 7 days from now midnight
+const defaultStart = new Date();
+defaultStart.setHours(0, 0, 0, 0);
+
+const defaultEnd = new Date();
+defaultEnd.setDate(defaultEnd.getDate() + 7);
+defaultEnd.setHours(0, 0, 0, 0);
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const PHONE_REGEX = /^\+[1-9]\d{6,14}$/;
+const PHONE_REGEX = /^\+91\d{10}$/;
 
 function validateEmail(email: string): string | null {
   if (!email) return null; // optional — at least one of email/phone required
@@ -22,7 +27,7 @@ function validateEmail(email: string): string | null {
 function validatePhone(phone: string): string | null {
   if (!phone) return null; // optional — at least one of email/phone required
   if (!PHONE_REGEX.test(phone.replace(/[\s\-()]/g, ''))) {
-    return 'Enter a valid phone number (e.g. +91 98765 43210)';
+    return 'Enter a valid phone number: +91 followed by 10 digits (e.g. +919876543210)';
   }
   return null;
 }
@@ -43,6 +48,7 @@ export default function AdminPage() {
   const [result, setResult] = useState<CreateSessionResult | null>(null);
   const [fieldErrors, setFieldErrors] = useState<{ email?: string; phone?: string }>({});
   const [touched, setTouched] = useState<{ email?: boolean; phone?: boolean }>({});
+  const [copySuccess, setCopySuccess] = useState(false);
 
   const update = (field: keyof CreateSessionInput, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -101,6 +107,8 @@ export default function AdminPage() {
   const handleCopyLink = () => {
     if (result?.verificationLink) {
       navigator.clipboard.writeText(result.verificationLink);
+      setCopySuccess(true);
+      setTimeout(() => setCopySuccess(false), 3000);
     }
   };
 
@@ -135,6 +143,15 @@ export default function AdminPage() {
               <p className="text-sm text-indigo-600 break-all font-mono">{result.verificationLink}</p>
             </div>
 
+            {copySuccess && (
+              <div className="w-full bg-emerald-50 border border-emerald-200 rounded-xl p-3 mb-4 flex items-center gap-2">
+                <svg className="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+                <p className="text-emerald-700 text-sm font-medium">Link copied to clipboard</p>
+              </div>
+            )}
+
             <div className="flex gap-3 w-full">
               <button
                 onClick={handleCopyLink}
@@ -146,7 +163,23 @@ export default function AdminPage() {
                 Copy Link
               </button>
               <button
-                onClick={() => { setResult(null); setForm((f) => ({ ...f, candidateName: '', candidateEmail: '', candidatePhone: '' })); }}
+                onClick={() => {
+                  setResult(null);
+                  setCopySuccess(false);
+                  setForm({
+                    candidateName: '',
+                    candidateEmail: '',
+                    candidatePhone: '',
+                    jobId: '',
+                    jobTitle: '',
+                    employerId: '',
+                    schedulingWindowStart: (() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d.toISOString(); })(),
+                    schedulingWindowEnd: (() => { const d = new Date(); d.setDate(d.getDate() + 7); d.setHours(0, 0, 0, 0); return d.toISOString(); })(),
+                  });
+                  setFieldErrors({});
+                  setTouched({});
+                  setError(null);
+                }}
                 className="flex-1 py-3 border-2 border-gray-200 text-gray-700 font-semibold rounded-xl hover:bg-gray-50 transition-colors"
               >
                 New Invite
@@ -251,10 +284,11 @@ export default function AdminPage() {
                 </span>
                 <input
                   type="tel"
+                  maxLength={13}
                   value={form.candidatePhone}
                   onChange={(e) => update('candidatePhone', e.target.value)}
                   onBlur={() => handleBlur('phone')}
-                  placeholder="+91 98765 43210"
+                  placeholder="+919876543210"
                   className={`w-full pl-11 pr-4 py-3 border-2 rounded-xl text-gray-700 focus:ring-2 outline-none transition-all ${fieldErrors.phone ? 'border-red-400 focus:border-red-500 focus:ring-red-200' : 'border-gray-200 focus:border-indigo-500 focus:ring-indigo-200'}`}
                 />
               </div>
@@ -309,22 +343,24 @@ export default function AdminPage() {
             <h3 className="text-sm font-semibold text-gray-700 mb-4">Scheduling Window</h3>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Start</label>
+                <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Start Date</label>
                 <input
-                  type="datetime-local"
+                  type="date"
                   required
-                  value={toDatetimeLocal(new Date(form.schedulingWindowStart))}
-                  onChange={(e) => update('schedulingWindowStart', new Date(e.target.value).toISOString())}
+                  min={toDateOnly(new Date())}
+                  value={toDateOnly(new Date(form.schedulingWindowStart))}
+                  onChange={(e) => update('schedulingWindowStart', new Date(e.target.value + 'T00:00:00').toISOString())}
                   className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl text-gray-700 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all"
                 />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">End</label>
+                <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">End Date</label>
                 <input
-                  type="datetime-local"
+                  type="date"
                   required
-                  value={toDatetimeLocal(new Date(form.schedulingWindowEnd))}
-                  onChange={(e) => update('schedulingWindowEnd', new Date(e.target.value).toISOString())}
+                  min={toDateOnly(new Date())}
+                  value={toDateOnly(new Date(form.schedulingWindowEnd))}
+                  onChange={(e) => update('schedulingWindowEnd', new Date(e.target.value + 'T23:59:59').toISOString())}
                   className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl text-gray-700 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all"
                 />
               </div>

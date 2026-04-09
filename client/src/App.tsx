@@ -100,8 +100,21 @@ export default function App() {
 
   if (!session) return null;
 
+  // If the session is already completed (e.g. page refresh after submission),
+  // reconstruct the confirmation result from session data so we skip ReviewStep.
+  const resolvedSubmitResult: api.SubmitResult | null = submitResult ?? (
+    session.status === 'completed' && session.submission
+      ? {
+          referenceNumber: session.submission.referenceNumber,
+          candidateName: session.candidateName,
+          candidateEmail: session.candidateEmail ?? '',
+          booking: session.booking ? { startTime: session.booking.startTime, endTime: session.booking.endTime } : null,
+        }
+      : null
+  );
+
   const completedSteps = getCompletedSteps(session);
-  const isCompleted = session.status === 'completed' || submitResult !== null;
+  const isCompleted = session.status === 'completed' || resolvedSubmitResult !== null;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -125,8 +138,8 @@ export default function App() {
         />
 
         {/* Step content */}
-        {isCompleted && submitResult ? (
-          <ConfirmationStep result={submitResult} />
+        {isCompleted && resolvedSubmitResult ? (
+          <ConfirmationStep result={resolvedSubmitResult} />
         ) : session.currentStep === 'email' ? (
           <VerifyStep token={token} email={session.candidateEmail} phone={session.candidatePhone} onComplete={loadSession} />
         ) : session.currentStep === 'photo' ? (

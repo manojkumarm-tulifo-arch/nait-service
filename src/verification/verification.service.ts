@@ -92,6 +92,12 @@ export async function getSessionState(token: string) {
   if (session.status === 'cancelled') throw new ConflictError('This session has been cancelled');
   if (session.status === 'expired') throw new ConflictError('This session has expired');
 
+  // If the scheduling window has passed and verification is not yet completed, mark as expired
+  if (session.status !== 'completed' && session.schedulingWindowEnd < new Date()) {
+    await repo.updateSession(session.id, { status: 'expired' });
+    throw new ConflictError('This verification link has expired. The scheduling window has ended.');
+  }
+
   // Fetch all step data in parallel for the frontend to render the correct step
   const [emailVer, phoneVer, photoVer, idVer, booking, submission] = await Promise.all([
     repo.findEmailVerification(session.id),
