@@ -39,14 +39,14 @@ const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE_REGEX = /^\+91\d{10}$/;
 
 /** Returns an error string if the email is non-empty and invalid, null otherwise. */
-function validateEmail(email: string): string | null {
+function validateEmail(email?: string): string | null {
   if (!email) return null; // optional — at least one of email/phone required
   if (!EMAIL_REGEX.test(email)) return 'Enter a valid email address';
   return null;
 }
 
 /** Returns an error string if the phone is non-empty and does not match +91XXXXXXXXXX. */
-function validatePhone(phone: string): string | null {
+function validatePhone(phone?: string): string | null {
   if (!phone) return null; // optional — at least one of email/phone required
   if (!PHONE_REGEX.test(phone.replace(/[\s\-()]/g, ''))) {
     return 'Enter a valid phone number: +91 followed by 10 digits (e.g. +919876543210)';
@@ -89,7 +89,7 @@ export default function AdminPage() {
       setFieldErrors((prev) => ({ ...prev, email: validateEmail(form.candidateEmail) ?? undefined }));
     }
     if (field === 'phone') {
-      setFieldErrors((prev) => ({ ...prev, phone: validatePhone(form.candidatePhone ?? '') ?? undefined }));
+      setFieldErrors((prev) => ({ ...prev, phone: validatePhone(form.candidatePhone) ?? undefined }));
     }
   };
 
@@ -97,7 +97,7 @@ export default function AdminPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const emailErr = validateEmail(form.candidateEmail);
-    const phoneErr = validatePhone(form.candidatePhone ?? '');
+    const phoneErr = validatePhone(form.candidatePhone);
     const hasAtLeastOne = !!form.candidateEmail || !!form.candidatePhone;
 
     setFieldErrors({ email: emailErr ?? undefined, phone: phoneErr ?? undefined });
