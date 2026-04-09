@@ -1,13 +1,32 @@
+/**
+ * AdminPage — session creation form for administrators.
+ *
+ * The admin fills in candidate contact details (at least one of email/phone),
+ * job details, and a date-only scheduling window. On submission a JWT-based
+ * verification link is generated and displayed.
+ *
+ * Key behaviours:
+ *  - Phone validation enforces Indian format: +91 followed by exactly 10 digits.
+ *  - Scheduling window uses date-only pickers (no time selection). Internally
+ *    the start date is stored as local midnight and the end date as midnight of
+ *    the NEXT day so that the full last day is included in slot generation.
+ *  - "Copy Link" shows a 3-second success toast.
+ *  - "New Invite" resets every field (including job details and dates).
+ */
+
 import { useState } from 'react';
 import * as api from '../api/verification';
 import type { CreateSessionInput, CreateSessionResult } from '../api/verification';
 
+/** Format a Date as YYYY-MM-DD using the browser's local timezone. */
 function toDateOnly(date: Date): string {
   const pad = (n: number) => n.toString().padStart(2, '0');
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 }
 
-// Default scheduling window: today midnight to 7 days from now midnight
+// Default scheduling window: today (midnight local) through 6 days from now.
+// End date is stored as midnight of day+7 (i.e. start of the day *after* the
+// last selectable day) so the 11 PM → 12 AM slot on the last day fits.
 const defaultStart = new Date();
 defaultStart.setHours(0, 0, 0, 0);
 
@@ -16,14 +35,17 @@ defaultEnd.setDate(defaultEnd.getDate() + 7);
 defaultEnd.setHours(0, 0, 0, 0);
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+/** Matches exactly +91 followed by 10 digits (Indian mobile numbers). */
 const PHONE_REGEX = /^\+91\d{10}$/;
 
+/** Returns an error string if the email is non-empty and invalid, null otherwise. */
 function validateEmail(email: string): string | null {
   if (!email) return null; // optional — at least one of email/phone required
   if (!EMAIL_REGEX.test(email)) return 'Enter a valid email address';
   return null;
 }
 
+/** Returns an error string if the phone is non-empty and does not match +91XXXXXXXXXX. */
 function validatePhone(phone: string): string | null {
   if (!phone) return null; // optional — at least one of email/phone required
   if (!PHONE_REGEX.test(phone.replace(/[\s\-()]/g, ''))) {
@@ -50,6 +72,7 @@ export default function AdminPage() {
   const [touched, setTouched] = useState<{ email?: boolean; phone?: boolean }>({});
   const [copySuccess, setCopySuccess] = useState(false);
 
+  /** Update a single form field and re-validate if the field was already touched. */
   const update = (field: keyof CreateSessionInput, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }));
     if (field === 'candidateEmail' && touched.email) {
@@ -70,6 +93,7 @@ export default function AdminPage() {
     }
   };
 
+  /** Validate all fields, then POST to /sessions to create the verification link. */
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const emailErr = validateEmail(form.candidateEmail);
@@ -104,6 +128,7 @@ export default function AdminPage() {
     }
   };
 
+  /** Copy verification link to clipboard and show a 3-second success toast. */
   const handleCopyLink = () => {
     if (result?.verificationLink) {
       navigator.clipboard.writeText(result.verificationLink);
@@ -359,8 +384,8 @@ export default function AdminPage() {
                   type="date"
                   required
                   min={toDateOnly(new Date())}
-                  value={toDateOnly(new Date(form.schedulingWindowEnd))}
-                  onChange={(e) => update('schedulingWindowEnd', new Date(e.target.value + 'T23:59:59').toISOString())}
+                  value={(() => { const d = new Date(form.schedulingWindowEnd); d.setDate(d.getDate() - 1); return toDateOnly(d); })()}
+                  onChange={(e) => { const d = new Date(e.target.value + 'T00:00:00'); d.setDate(d.getDate() + 1); update('schedulingWindowEnd', d.toISOString()); }}
                   className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl text-gray-700 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all"
                 />
               </div>

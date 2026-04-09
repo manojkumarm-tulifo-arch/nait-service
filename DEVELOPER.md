@@ -106,6 +106,18 @@ Each API call validates the current step and advances it on success.
 
 **Race Condition Guard** — When a candidate books a slot, the service re-checks Google Calendar freebusy to verify the slot is still available. This prevents double-bookings when multiple candidates view slots simultaneously.
 
+**Sequential OTP Verification** — The frontend verifies email and phone OTPs sequentially (not via `Promise.all`). Each backend call checks whether the other channel is already verified before advancing the session. Running them concurrently would cause a race condition where neither call sees the other as committed, preventing session advancement.
+
+**End-Date-as-Next-Day-Midnight** — The admin date picker shows a "to" date representing the last selectable day. Internally, the scheduling window end is stored as midnight of the *next* day (e.g., user picks April 10 → stored as April 11 00:00:00). This ensures the entire last day is included when generating slots, and the 11 PM–12 AM slot is not excluded by an off-by-one-second boundary.
+
+**Local-Time Slot Alignment** — Slot generation starts the cursor directly from the admin's `windowStart` (which is midnight local time). This ensures slots fall on clean local-time hour boundaries (12 AM, 1 AM, …, 11 PM). Snapping to UTC hour boundaries would misalign for timezones with non-hour offsets (e.g., IST at UTC+5:30 would produce 12:30 AM slots).
+
+**2-Hour Booking Buffer** — Slots that start within the next 2 hours are filtered out, giving candidates time to complete remaining verification steps before the interview.
+
+**Scheduling Window Expiry** — When a candidate opens their verification link, `getSessionState` checks whether the scheduling window has ended. If so, the session is automatically marked as `expired` in the database and the candidate sees an expiry message instead of the verification wizard.
+
+**Completed Session Detection on Refresh** — After final submission, if the candidate refreshes the page, the frontend reconstructs the confirmation result from the session's `submission` data (reference number, booking times) rather than sending the candidate back to the ReviewStep.
+
 **Webhook Fire-and-Forget** — Webhook dispatch is asynchronous with up to 2 retries and exponential backoff. It logs failures but never blocks the primary business flow.
 
 **Validated Query Storage** — Express 5 makes `req.query` and `req.params` read-only. Validated query data is stored on `req.validated_query` by the validation middleware and read from there in controllers.
@@ -119,6 +131,8 @@ Each API call validates the current step and advances it on success.
 Parent entity for the entire verification flow.
 
 Status lifecycle: `email_pending` → `email_verified` → `photo_completed` → `id_completed` → `slot_booked` → `completed` | `cancelled` | `expired`
+
+Sessions are automatically moved to `expired` when the candidate opens their link after the scheduling window has ended.
 
 Step sequence: `email` → `photo` → `id_proof` → `schedule` → `review`
 
@@ -166,9 +180,9 @@ npm run test:coverage   # With coverage report
 | File | Tests | What it covers |
 |------|-------|----------------|
 | `token/token.test.ts` | 6 | JWT generate/verify, expiry, tampering |
-| `calendar/calendar.test.ts` | 10 | Slot calculation, busy periods, events |
+| `calendar/calendar.test.ts` | 10 | Slot calculation, busy periods, events, 2-hour buffer, local-time alignment |
 | `webhook/webhook.test.ts` | 4 | Dispatch, retry logic, timeout handling |
-| `verification/verification.integration.test.ts` | 19 | Full HTTP flow via supertest: admin CRUD, email OTP, photo/liveness, ID proof, scheduling, submission, auth/validation errors |
+| `verification/verification.integration.test.ts` | 19 | Full HTTP flow via supertest: admin CRUD, email + phone OTP, photo/liveness, ID proof, scheduling, submission, auth/validation errors |
 
 ### Integration Test Approach
 

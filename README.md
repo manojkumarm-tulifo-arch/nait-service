@@ -4,12 +4,12 @@ Verification and scheduling microservice for the Tulifo-VIDEO platform. Candidat
 
 ## Features
 
-- **Email Verification** — 6-digit OTP sent to the candidate's email (hardcoded for now, pluggable)
+- **Email + Phone Verification** — 6-digit OTP sent to the candidate's email and phone (hardcoded for now, pluggable). Phone numbers are validated as `+91` followed by exactly 10 digits.
 - **Photo + Liveness** — Browser-based selfie capture with blink/smile detection via face-api.js
 - **ID Proof** — Upload/scan government ID (Aadhaar, PAN, Passport, DL) with mock OCR and face match
-- **Interview Scheduling** — Slot picker backed by Google Calendar freebusy queries
+- **Interview Scheduling** — 1-hour slot picker backed by Google Calendar freebusy queries. Slots align to clean local-time hour boundaries (12 AM, 1 AM, …, 11 PM). A 2-hour buffer prevents candidates from booking slots that start within the next 2 hours.
 - **Review & Submit** — Summary of all data, geolocation + device capture, reference number generation
-- **Admin API** — Create sessions, list/view/cancel, resend invitations
+- **Admin API** — Create sessions with date-only scheduling window picker (no time selection). Sessions auto-expire when the scheduling window ends.
 - **Webhook Notifications** — Fire-and-forget HTTP callbacks for invitation_sent, booking_confirmed, booking_cancelled
 
 ## Tech Stack
@@ -78,7 +78,7 @@ docker compose up
 | `GOOGLE_CALENDAR_ID` | Google Calendar ID | `primary` |
 | `DEFAULT_WEBHOOK_URL` | Default webhook URL for notifications | — |
 | `DEFAULT_LINK_EXPIRY_HOURS` | Link expiration time | `72` |
-| `DEFAULT_SLOT_DURATION_MINUTES` | Default slot length | `30` |
+| `DEFAULT_SLOT_DURATION_MINUTES` | Default slot length | `60` |
 | `LOG_LEVEL` | Pino log level | `info` |
 | `NODE_ENV` | Environment | `development` |
 
@@ -149,19 +149,23 @@ Each payload includes `eventType`, `timestamp`, `sessionId`, and event-specific 
 
 ```
 1. Admin creates session via POST /api/v1/sessions
+   → Selects date-only scheduling window (today or future dates)
+   → End date stored internally as midnight of the next day for full-day coverage
    → Generates JWT verification link
    → Fires invitation_sent webhook
+   → "Copy Link" button shows a toast notification on success
 
 2. Candidate opens link in browser (React frontend)
-   → Step 1: Email — enter email, receive OTP, verify
+   → If scheduling window has ended → shows "expired" message
+   → Step 1: Email + Phone — enter details, receive OTPs, verify both (sequential)
    → Step 2: Photo — open camera, liveness check (blink + smile), capture
    → Step 3: ID Proof — select ID type, scan/upload, confirm extracted data
-   → Step 4: Schedule — pick date + time slot from calendar
+   → Step 4: Schedule — 1-hour slots from 12 AM to 11 PM, starting 2 hours from now
    → Step 5: Review — grant location, review summary, submit
 
 3. On submit:
    → Generates reference number (VRF-YYYY-XXXX)
    → Records geolocation + device info
    → Fires booking_confirmed webhook
-   → Shows confirmation screen
+   → Shows confirmation screen (persists across page refresh)
 ```

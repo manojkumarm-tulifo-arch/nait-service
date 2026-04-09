@@ -1,13 +1,33 @@
+/**
+ * VerifyStep — Step 1 of the candidate verification flow.
+ *
+ * Two phases:
+ *  Phase 1 (confirm): Show pre-filled contact info from the admin. If the admin
+ *    omitted email or phone the candidate must provide the missing value here.
+ *  Phase 2 (otp): 6-digit OTP entry for both email and phone, with resend
+ *    timers and per-channel verified badges.
+ *
+ * Key behaviours:
+ *  - Phone validation matches the admin page: +91 followed by exactly 10 digits.
+ *  - OTP verification is sequential (email first, then phone) to avoid a race
+ *    condition where neither backend call sees the other as committed, which
+ *    would prevent the session from advancing to the next step.
+ *  - Email state defaults to '' (not null) to keep the input controlled.
+ */
+
 import { useState, useEffect, useCallback, useRef } from 'react';
 import OtpInput from './OtpInput';
 import * as api from '../api/verification';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+/** Matches exactly +91 followed by 10 digits (Indian mobile numbers). */
 const PHONE_REGEX = /^\+91\d{10}$/;
 
 interface VerifyStepProps {
   token: string;
+  /** Pre-filled by admin, or null if the candidate must provide it. */
   email: string | null;
+  /** Pre-filled by admin, or null if the candidate must provide it. */
   phone: string | null;
   onComplete: () => void;
 }

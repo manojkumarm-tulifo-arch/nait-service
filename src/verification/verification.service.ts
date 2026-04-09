@@ -83,7 +83,20 @@ export async function createSession(input: CreateSessionInput) {
   return { session: updated!, verificationLink };
 }
 
-/** Fetch the current state of a session for the candidate's frontend. */
+/**
+ * Fetch the current state of a session for the candidate's frontend.
+ *
+ * Performs three guard checks before returning data:
+ *  1. Token validity — JWT must be well-formed and not expired.
+ *  2. Session status — cancelled / already-expired sessions are rejected.
+ *  3. Scheduling window expiry — if the admin-defined scheduling window end
+ *     date has passed and the session is not yet completed, the session is
+ *     automatically marked as expired in the database and the candidate sees
+ *     an "expired" message instead of the verification wizard.
+ *
+ * All step data (email, phone, photo, ID, booking, submission) is fetched
+ * in parallel so the frontend can render the correct step in a single round trip.
+ */
 export async function getSessionState(token: string) {
   const payload = tokenService.verifyToken(token);
   // Look up by jti rather than sessionId to ensure only the latest token works
@@ -92,7 +105,9 @@ export async function getSessionState(token: string) {
   if (session.status === 'cancelled') throw new ConflictError('This session has been cancelled');
   if (session.status === 'expired') throw new ConflictError('This session has expired');
 
-  // If the scheduling window has passed and verification is not yet completed, mark as expired
+  // If the scheduling window has passed and verification is not yet completed, mark as expired.
+  // The admin's end date is stored as midnight of the day after the last selectable date,
+  // so this comparison naturally covers the entire last day.
   if (session.status !== 'completed' && session.schedulingWindowEnd < new Date()) {
     await repo.updateSession(session.id, { status: 'expired' });
     throw new ConflictError('This verification link has expired. The scheduling window has ended.');
@@ -134,6 +149,11 @@ export async function getSessionState(token: string) {
 
 // --- Update missing contact info (user-facing) ---
 
+/**
+ * Allow the candidate to supply missing contact info (email or phone) that
+ * the admin left blank when creating the session. Only fills in fields that
+ * are currently null — existing values cannot be overwritten.
+ */
 export async function updateContactInfo(token: string, data: { candidateEmail?: string; candidatePhone?: string }) {
   const payload = tokenService.verifyToken(token);
   const session = await repo.findSessionByTokenJti(payload.jti);
@@ -163,6 +183,7 @@ export async function updateContactInfo(token: string, data: { candidateEmail?: 
 
 // --- Step 1: Email Verification ---
 
+/** Send a 6-digit OTP to the candidate's email. Validates the address matches the session. */
 export async function sendOtp(token: string, email: string) {
   const payload = tokenService.verifyToken(token);
   const session = await repo.findSessionByTokenJti(payload.jti);
@@ -195,6 +216,15 @@ export async function sendOtp(token: string, email: string) {
   return { message: 'OTP sent', expiresInSeconds: OTP_EXPIRY_MINUTES * 60 };
 }
 
+/**
+ * Verify the candidate's email OTP.
+ *
+ * Session advancement: the session only moves to the next step (photo) when
+ * BOTH email AND phone are verified. This method checks phone status after
+ * marking email as verified. The frontend must call email and phone
+ * verification sequentially (not in parallel) so the second call sees the
+ * first as committed — otherwise a race condition prevents advancement.
+ */
 export async function verifyOtp(token: string, code: string) {
   const payload = tokenService.verifyToken(token);
   const session = await repo.findSessionByTokenJti(payload.jti);
@@ -234,6 +264,7 @@ export async function verifyOtp(token: string, code: string) {
 
 // --- Step 1b: Phone Verification ---
 
+/** Send a 6-digit OTP to the candidate's phone. Validates the number matches the session. */
 export async function sendPhoneOtp(token: string, phone: string) {
   const payload = tokenService.verifyToken(token);
   const session = await repo.findSessionByTokenJti(payload.jti);
@@ -265,6 +296,12 @@ export async function sendPhoneOtp(token: string, phone: string) {
   return { message: 'OTP sent to phone', expiresInSeconds: OTP_EXPIRY_MINUTES * 60 };
 }
 
+/**
+ * Verify the candidate's phone OTP.
+ *
+ * Mirror of verifyOtp — advances the session only when both email and phone
+ * are verified. See verifyOtp JSDoc for the sequential-verification note.
+ */
 export async function verifyPhoneOtp(token: string, code: string) {
   const payload = tokenService.verifyToken(token);
   const session = await repo.findSessionByTokenJti(payload.jti);
@@ -412,6 +449,14 @@ export async function confirmIdProof(token: string) {
 
 // --- Step 4: Schedule ---
 
+/**
+ * Retrieve 1-hour interview slots within the admin-defined scheduling window.
+ *
+ * Slot generation (delegated to calendarService.getAvailableSlots):
+ *  - Slots are 1-hour blocks aligned to local-time hour boundaries (12 AM, 1 AM, …).
+ *  - Only slots starting at least 2 hours from the current time are returned.
+ *  - Each slot is marked available/blocked based on Google Calendar freebusy data.
+ */
 export async function getAvailableSlots(token: string) {
   const payload = tokenService.verifyToken(token);
   const session = await repo.findSessionByTokenJti(payload.jti);
@@ -435,6 +480,12 @@ export async function getAvailableSlots(token: string) {
   };
 }
 
+/**
+ * Book an interview slot on Google Calendar.
+ *
+ * Validates the slot is within the scheduling window, then re-checks
+ * Google Calendar freebusy as a race-condition guard before creating the event.
+ */
 export async function bookSlot(token: string, startTime: string) {
   const payload = tokenService.verifyToken(token);
   const session = await repo.findSessionByTokenJti(payload.jti);
@@ -488,6 +539,11 @@ export async function bookSlot(token: string, startTime: string) {
 
 // --- Step 5: Submit ---
 
+/**
+ * Final submission: records geolocation + device info, generates a reference
+ * number (VRF-YYYY-XXXX), marks the session as completed, and fires the
+ * booking_confirmed webhook. Idempotency: throws ConflictError if already submitted.
+ */
 export async function submit(token: string, data: { latitude: number; longitude: number; accuracy?: number; deviceInfo: string }) {
   const payload = tokenService.verifyToken(token);
   const session = await repo.findSessionByTokenJti(payload.jti);
@@ -537,12 +593,14 @@ export async function submit(token: string, data: { latitude: number; longitude:
 
 // --- Admin ---
 
+/** Fetch the full session with all related step data (admin view). */
 export async function getFullSession(sessionId: string) {
   const session = await repo.findFullSession(sessionId);
   if (!session) throw new NotFoundError('Verification session');
   return session;
 }
 
+/** List sessions with optional filters (status, employer, date range) and cursor pagination. */
 export async function listSessions(query: ListSessionsQuery) {
   return repo.listSessions(
     {

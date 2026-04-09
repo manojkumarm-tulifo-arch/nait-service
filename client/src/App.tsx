@@ -1,3 +1,19 @@
+/**
+ * App — root component that routes between Admin and Candidate flows.
+ *
+ * Routing:
+ *  - /admin  → AdminPage (session creation form)
+ *  - /:token → 5-step candidate verification wizard
+ *
+ * The candidate flow loads session state from the backend and renders the
+ * appropriate step component. Each step calls onComplete (which re-fetches
+ * session state) to advance to the next step.
+ *
+ * On page refresh after a completed submission, the app reconstructs the
+ * confirmation result from the session's `submission` data so the candidate
+ * sees the ConfirmationStep instead of being sent back to ReviewStep.
+ */
+
 import { useState, useEffect, useCallback } from 'react';
 import Stepper from './components/Stepper';
 import VerifyStep from './components/VerifyStep';
@@ -12,6 +28,7 @@ import type { SessionState, SubmitResult } from './api/verification';
 
 const STEP_ORDER = ['email', 'photo', 'id_proof', 'schedule', 'review'] as const;
 
+/** Derive which steps are complete based on the session's current step index. */
 function getCompletedSteps(session: SessionState): string[] {
   const completed: string[] = [];
   const idx = STEP_ORDER.indexOf(session.currentStep);

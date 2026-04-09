@@ -1,7 +1,7 @@
 # NAIT Service — Task Tracker
 
 **Project**: Verification + KYC + Scheduling Service (NAIT)
-**Last Updated**: 2026-04-06
+**Last Updated**: 2026-04-08
 
 ---
 
@@ -76,6 +76,27 @@
 
 ---
 
+## Phase 5: UX Enhancements & Bug Fixes (2026-04-08)
+
+| # | Task | Status | Notes |
+|---|------|--------|-------|
+| 53 | Phone validation: +91 + 10 digits, max 13 chars | DONE | Admin page + candidate VerifyStep — `PHONE_REGEX = /^\+91\d{10}$/` |
+| 54 | Copy Link toast notification | DONE | `AdminPage.tsx` — 3-second "Link copied" toast after clipboard copy |
+| 55 | New Invite full field reset | DONE | `AdminPage.tsx` — resets all fields including job details and dates |
+| 56 | Date-only scheduling window picker | DONE | `AdminPage.tsx` — removed time selection, `type="date"` inputs, today + future only |
+| 57 | End date stored as midnight of next day | DONE | Ensures full last-day coverage (11 PM slot not excluded). Display subtracts 1 day. |
+| 58 | Email field made optional in backend | DONE | Zod schema + Prisma model allow null email; admin can omit it |
+| 59 | Sequential OTP verification (race condition fix) | DONE | `VerifyStep.tsx` — changed `Promise.all` to sequential calls so backend sees both as committed |
+| 60 | Confirmation persists across page refresh | DONE | `App.tsx` — reconstructs `SubmitResult` from session's `submission` data when status=completed |
+| 61 | 1-hour slot grid aligned to local-time hours | DONE | `calendar.service.ts` — cursor starts from windowStart (midnight local), not UTC-snapped |
+| 62 | 2-hour booking buffer | DONE | `calendar.service.ts` — slots starting within 2 hours from now are filtered out |
+| 63 | Scheduling window expiry | DONE | `verification.service.ts` — auto-expires session when window end date passes |
+| 64 | Timezone slot misalignment fix (IST 12:30 AM) | DONE | Removed `Math.ceil` UTC hour snap; start from windowStart directly for clean local-time hours |
+| 65 | JSDoc comments on all modified files | DONE | Added to AdminPage, VerifyStep, App, calendar.service, verification.service |
+| 66 | Documentation update (README, DEVELOPER, TASK_TRACKER) | DONE | Updated for all Phase 5 changes |
+
+---
+
 ## Pending / Future Work
 
 | # | Task | Status | Notes |
@@ -94,6 +115,6 @@
 
 ## Summary
 
-- **Total tasks**: 52
-- **Completed**: 43 (83%)
-- **Pending**: 9 (17%) — all are production hardening / future enhancements, not MVP blockers
+- **Total tasks**: 66
+- **Completed**: 57 (86%)
+- **Pending**: 9 (14%) — all are production hardening / future enhancements, not MVP blockers

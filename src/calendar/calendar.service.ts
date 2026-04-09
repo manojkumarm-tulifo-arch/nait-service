@@ -3,7 +3,10 @@
  *
  * Provides four operations used by the verification flow:
  *   - getAvailableSlots: generate a slot grid from a scheduling window,
- *     marking each as available/blocked based on Google freebusy data
+ *     marking each as available/blocked based on Google freebusy data.
+ *     Slots are 1-hour blocks aligned to the local-time hour boundaries
+ *     set by the admin's date picker (midnight local). Only slots starting
+ *     at least 2 hours from now are returned, and past slots are skipped.
  *   - isSlotAvailable: point-in-time re-check before booking (race guard)
  *   - createEvent: book the interview on the calendar
  *   - deleteEvent: remove the event on session cancellation (idempotent)
@@ -17,7 +20,16 @@ import type { TimeSlot, CalendarEvent } from './calendar.types.js';
 /**
  * Build a grid of fixed-duration slots within the scheduling window and
  * mark each as available or blocked by querying Google Calendar freebusy.
- * Past slots are excluded entirely.
+ *
+ * Slot alignment: the cursor starts directly from windowStart (set to local
+ * midnight by the admin's date picker) so all slots fall on clean local-time
+ * hour boundaries (12 AM, 1 AM, …, 11 PM). We intentionally do NOT snap to
+ * UTC hour boundaries — doing so would misalign for timezones with non-hour
+ * offsets (e.g. IST at UTC+5:30 would produce 12:30 AM slots).
+ *
+ * The 2-hour buffer ensures candidates cannot book a slot that starts within
+ * the next 2 hours, giving them time to complete the remaining verification
+ * steps before the interview.
  */
 export async function getAvailableSlots(
   calendarId: string,
@@ -49,10 +61,9 @@ export async function getAvailableSlots(
     const now = Date.now();
     // Slots must start at least 2 hours from now
     const earliest = now + 2 * 60 * 60 * 1000;
-    // Snap cursor to the next whole-hour boundary so slots always fall on
-    // clean hours (e.g. 12:00 AM, 1:00 AM) — no intermediate slots like 5:03 AM.
-    const hourMs = 60 * 60 * 1000;
-    let cursor = Math.ceil(windowStart.getTime() / hourMs) * hourMs;
+    // Start from windowStart directly — the admin sets it to midnight local time,
+    // so slots naturally align to local-time hour boundaries (12 AM, 1 AM, …).
+    let cursor = windowStart.getTime();
 
     while (cursor + slotDurationMs <= windowEnd.getTime()) {
       const slotEnd = cursor + slotDurationMs;
